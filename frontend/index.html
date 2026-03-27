@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AegisFlow — Autonomous Multi-Agent Orchestration</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500;700&family=DM+Sans:wght@400;500;700;800&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+
+  <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+  <script defer src="js/app.js"></script>
+</head>
+<body>
+  <div class="grid-bg"></div>
+  <div class="scanline"></div>
+
+  <div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+
+  <header class="header">
+    <div class="brand">
+      <div class="brand-icon" aria-hidden="true">⬡</div>
+      <div>
+        <div class="brand-title">AegisFlow</div>
+        <div class="brand-subtitle">Autonomous Multi-Agent Orchestration</div>
+      </div>
+    </div>
+
+    <nav class="tabs" aria-label="Primary">
+      <button class="tab active" data-target="dashboard">Dashboard</button>
+      <button class="tab" data-target="workflows">Workflows</button>
+      <button class="tab" data-target="agents">Agents</button>
+      <button class="tab" data-target="audit">Audit Trail</button>
+    </nav>
+
+    <div class="header-right">
+      <div class="live-pill"><span class="live-dot"></span><span>LIVE</span></div>
+      <div class="clock" id="clock">00:00:00</div>
+    </div>
+  </header>
+
+  <main class="app">
+    <section class="hero panel">
+      <div class="hero-copy">
+        <div class="eyebrow">Competition-ready orchestration console</div>
+        <h1>Orchestrate workflows, agents, logs, and SLA intelligence in one place.</h1>
+        <p>
+          AegisFlow is now wired to your backend. Create workflows, watch the agent fleet respond,
+          monitor SLA events, and inspect audit logs in real time.
+        </p>
+
+        <div class="hero-actions">
+          <button class="btn-primary" id="launchWorkflowShortcut">Launch workflow</button>
+          <button class="btn-secondary" id="scrollToWorkflows">View workflows</button>
+        </div>
+
+        <div class="hero-tags">
+          <span class="chip">Real API</span>
+          <span class="chip">Socket.IO live sync</span>
+          <span class="chip">Audit trail</span>
+          <span class="chip">Workflow inspector</span>
+        </div>
+      </div>
+
+      <div class="hero-side">
+        <div class="status-card">
+          <div class="status-card-label">Backend</div>
+          <div class="status-card-value" id="backendStatus">Connecting…</div>
+          <div class="status-card-subtitle" id="backendStatusSub">http://localhost:5000</div>
+        </div>
+        <div class="status-card">
+          <div class="status-card-label">Selected workflow</div>
+          <div class="status-card-value" id="selectedWorkflowTitle">None</div>
+          <div class="status-card-subtitle" id="selectedWorkflowSub">Click a workflow row</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="metric-grid" aria-label="System metrics">
+      <article class="metric panel">
+        <div class="metric-top">
+          <span class="metric-label">Total Workflows</span>
+          <span class="metric-pill" id="metric-total-pill">—</span>
+        </div>
+        <div class="metric-value" id="metric-total">0</div>
+        <div class="spark" id="spark-total"></div>
+        <div class="metric-foot">All workflows currently stored in the backend</div>
+      </article>
+
+      <article class="metric panel">
+        <div class="metric-top">
+          <span class="metric-label">Running</span>
+          <span class="metric-pill green" id="metric-running-pill">—</span>
+        </div>
+        <div class="metric-value green" id="metric-running">0</div>
+        <div class="spark" id="spark-running"></div>
+        <div class="metric-foot">Active workflows under orchestration</div>
+      </article>
+
+      <article class="metric panel">
+        <div class="metric-top">
+          <span class="metric-label">Completed</span>
+          <span class="metric-pill blue" id="metric-completed-pill">—</span>
+        </div>
+        <div class="metric-value blue" id="metric-completed">0</div>
+        <div class="spark" id="spark-completed"></div>
+        <div class="metric-foot">Successfully finished end-to-end</div>
+      </article>
+
+      <article class="metric panel">
+        <div class="metric-top">
+          <span class="metric-label">SLA Breaches</span>
+          <span class="metric-pill amber" id="metric-breach-pill">—</span>
+        </div>
+        <div class="metric-value amber" id="metric-breach">0</div>
+        <div class="spark" id="spark-breach"></div>
+        <div class="metric-foot">Workflows that crossed threshold limits</div>
+      </article>
+    </section>
+
+    <section class="workspace">
+      <div class="workspace-main">
+        <section class="panel section" id="workflows">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Workflows</div>
+              <div class="panel-subtitle">Search, filter, sort, and inspect live workflow state</div>
+            </div>
+
+            <div class="workflow-controls">
+              <div class="search-wrap">
+                <input type="text" id="workflowSearch" placeholder="Search by id, subject, type, step…" />
+              </div>
+
+              <select id="workflowFilter" class="select">
+                <option value="all">All statuses</option>
+                <option value="running">Running</option>
+                <option value="completed">Completed</option>
+                <option value="failed">Failed</option>
+                <option value="sla-breach">SLA breach</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Type</th>
+                  <th>Subject</th>
+                  <th>Priority</th>
+                  <th>Status</th>
+                  <th>Step</th>
+                  <th>Started</th>
+                  <th>Duration</th>
+                </tr>
+              </thead>
+              <tbody id="workflowTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel section" id="inspector">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Workflow Inspector</div>
+              <div class="panel-subtitle">Detailed view of the selected workflow</div>
+            </div>
+            <span class="badge" id="inspectorBadge">Select a workflow</span>
+          </div>
+          <div class="panel-body" id="workflowInspectorBody">
+            <div class="empty-state">
+              Click any workflow row to inspect status, notes, progress, and step breakdown.
+            </div>
+          </div>
+        </section>
+
+        <section class="panel section" id="agents">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Agent Fleet</div>
+              <div class="panel-subtitle">Live status of the orchestration agents</div>
+            </div>
+            <span class="badge" id="agentCountBadge">0 agents</span>
+          </div>
+          <div class="agent-grid" id="agentGrid"></div>
+        </section>
+
+        <section class="panel section" id="audit">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Audit Trail</div>
+              <div class="panel-subtitle">Immutable event stream from the backend</div>
+            </div>
+            <div class="panel-actions">
+              <span class="badge" id="log-count">0 entries</span>
+              <button class="btn-mini" id="clearLogBtn">Clear</button>
+            </div>
+          </div>
+          <div class="audit-log" id="auditLog"></div>
+        </section>
+      </div>
+
+      <aside class="workspace-side">
+        <section class="panel section">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Launch Workflow</div>
+              <div class="panel-subtitle">Create a new orchestration request</div>
+            </div>
+          </div>
+
+          <div class="panel-body">
+            <div class="form-group">
+              <label for="wf-type">Workflow Type</label>
+              <select id="wf-type" class="input select">
+                <option>Employee Onboarding</option>
+                <option>Contract Renewal</option>
+                <option>Access Revocation</option>
+                <option>Payroll Update</option>
+                <option>Custom Workflow</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="wf-subject">Subject / Employee</label>
+              <input id="wf-subject" class="input" type="text" placeholder="e.g. Priya Sharma · Engineering" />
+            </div>
+
+            <div class="form-group">
+              <label for="wf-priority">Priority</label>
+              <select id="wf-priority" class="input select">
+                <option>Normal</option>
+                <option>High</option>
+                <option>Critical</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="wf-notes">Notes / Context</label>
+              <textarea id="wf-notes" class="input textarea" placeholder="Additional instructions for the orchestrator..."></textarea>
+            </div>
+
+            <button class="btn-primary full" id="launchWorkflowBtn">⬡ Launch Workflow</button>
+          </div>
+        </section>
+
+        <section class="panel section">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Meeting Intelligence</div>
+              <div class="panel-subtitle">Extract tasks from meeting notes or transcript</div>
+            </div>
+          </div>
+
+          <div class="panel-body">
+            <div class="form-group">
+              <label for="transcript-input">Transcript / Meeting Notes</label>
+              <textarea
+                id="transcript-input"
+                class="input textarea tall"
+                placeholder="Example: Decided to onboard Alex next Monday. Sarah will handle access. IT will provision the laptop by Friday."
+              ></textarea>
+            </div>
+
+            <button class="btn-secondary full" id="extractTasksBtn">◈ Extract Tasks with AI</button>
+
+            <div id="extracted-tasks-container" class="hidden">
+              <div class="mini-title">Extracted Actions</div>
+              <div class="task-list" id="extractedTasks"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel section">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">System Health</div>
+              <div class="panel-subtitle">Backend connection and live updates</div>
+            </div>
+          </div>
+
+          <div class="panel-body">
+            <div class="health-row">
+              <span>API</span>
+              <span class="health-value" id="apiHealth">Checking…</span>
+            </div>
+            <div class="health-row">
+              <span>Socket.IO</span>
+              <span class="health-value" id="socketHealth">Idle</span>
+            </div>
+            <div class="health-row">
+              <span>Last sync</span>
+              <span class="health-value" id="lastSync">—</span>
+            </div>
+          </div>
+        </section>
+      </aside>
+    </section>
+  </main>
+</body>
+</html>
